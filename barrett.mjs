@@ -1,4 +1,4 @@
-export function benchmarkBarrett(PRIME) {
+export function benchmarkBarrett(PRIME, iterations) {
   // Run benchmark
   console.log("\nRunning Barrett benchmark...");
   console.log("N (Prime): ", PRIME.toString());
@@ -8,16 +8,17 @@ export function benchmarkBarrett(PRIME) {
   // Precompute parameters
   const BARRET_MU = 2n ** (2n * PRIME_BIT_LENGTH) / PRIME;
 
-  const iterations = 1000000;
-
   // Generate random test values
   const x = BigInt(Math.floor(Math.random() * Number(PRIME)));
   const testValues = Array(iterations)
     .fill()
     .map(() => BigInt(Math.floor(Math.random() * Number(PRIME))));
+  // Verify against native modular multiplication
+  const timeStartN = performance.now();
   const expected = testValues.reduce((acc, v) => {
     return (acc * v) % PRIME;
   }, x);
+  const timeN = performance.now() - timeStartN;
 
   // Benchmark Barrett
   const barrettStart = performance.now();
@@ -30,6 +31,7 @@ export function benchmarkBarrett(PRIME) {
   }
 
   console.log(`Barrett ${iterations} muls: ${barrettTime.toFixed(2)}ms`);
+  console.log(`Naive Time: ${timeN.toFixed(2)}ms`);
 
   function barrettReduce(x) {
     const q = ((x >> PRIME_BIT_LENGTH) * BARRET_MU) >> PRIME_BIT_LENGTH;

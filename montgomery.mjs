@@ -1,4 +1,4 @@
-export function benchmarkMontgomery(PRIME) {
+export function benchmarkMontgomery(PRIME, iterations) {
   const R = 2n ** (log2BigInt(PRIME) + 1n); // R = 2^5 (smallest power of 2 > PRIME)
   const R_SQUARED = (R * R) % PRIME; // R^2 mod P = 4
 
@@ -82,11 +82,11 @@ export function benchmarkMontgomery(PRIME) {
   }
 
   // multiply
-  function verify(x, count = 1000000) {
+  function verify(x) {
     // console.log(`\nMultiplying ${x} by ${count} random values`);
 
     // Convert to Montgomery form
-    const values = Array(count)
+    const values = Array(iterations)
       .fill()
       .map(() => BigInt(Math.floor(Math.random() * Number(PRIME))));
     const valuesMont = values.map(toMontgomery);
@@ -103,7 +103,7 @@ export function benchmarkMontgomery(PRIME) {
     // Convert back to normal form
     const result = fromMontgomery(v);
     const time = performance.now() - timeStart;
-    console.log(`Montgomery ${count} muls: ${time.toFixed(2)}ms`);
+    console.log(`Montgomery ${iterations} muls: ${time.toFixed(2)}ms`);
 
     // Verify against native modular multiplication
     const timeStartN = performance.now();
