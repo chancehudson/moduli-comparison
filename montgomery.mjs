@@ -1,8 +1,7 @@
-export function benchmarkMontgomery(PRIME, iterations) {
-  const R = 2n ** (log2BigInt(PRIME) + 1n); // R = 2^5 (smallest power of 2 > PRIME)
+export function benchmarkMontgomery(PRIME, iterations, x, values) {
+  const R = 2n ** log2BigInt(PRIME); // smallest power of 2 > PRIME
   const R_BITMASK = R - 1n;
-  const R_BITS = log2BigInt(PRIME) + 1n;
-  const R_SQUARED = (R * R) % PRIME; // R^2 mod P = 4
+  const R_BITS = log2BigInt(PRIME);
 
   // Find N' = -N^(-1) mod R
   const N_PRIME = (-modinv(PRIME, R) + R) % R;
@@ -10,30 +9,11 @@ export function benchmarkMontgomery(PRIME, iterations) {
   console.log("\nRunning Montgomery benchmark...");
   console.log(`N (Prime) = ${PRIME}`);
 
-  verify(BigInt(Math.floor(Math.random() * Number(PRIME))));
+  verify(x);
 
+  // log2_ceil
   function log2BigInt(n) {
-    // Input validation
-    if (typeof n !== "bigint" || n <= 0n) {
-      throw new Error("Input must be a positive BigInt");
-    }
-
-    // Handle the case of n = 1
-    if (n === 1n) {
-      return 0n;
-    }
-
-    // Initialize the result
-    let result = 0n;
-
-    // Keep dividing by 2 until we reach 1
-    // Count how many times we can divide by 2
-    while (n > 1n) {
-      n = n >> 1n; // Bit shift right is equivalent to division by 2
-      result += 1n;
-    }
-
-    return result;
+    return BigInt(n.toString(2).length);
   }
 
   // Extended Euclidean Algorithm
@@ -61,17 +41,17 @@ export function benchmarkMontgomery(PRIME, iterations) {
 
   // Montgomery reduction (REDC)
   function redc(T) {
-    const m = ((T & R_BITMASK) * N_PRIME) & R;
+    const m = ((T & R_BITMASK) * N_PRIME) & R_BITMASK;
     let t = (T + m * PRIME) >> R_BITS;
 
-    if (t >= PRIME) {
-      t -= PRIME;
-    }
+    // if (t >= PRIME) {
+    //   t -= PRIME;
+    // }
     return t;
   }
 
   function toMontgomery(x) {
-    return (x * R) % PRIME;
+    return (x << R_BITS) % PRIME;
   }
 
   function fromMontgomery(x) {
@@ -88,19 +68,16 @@ export function benchmarkMontgomery(PRIME, iterations) {
     // console.log(`\nMultiplying ${x} by ${count} random values`);
 
     // Convert to Montgomery form
-    const values = Array(iterations)
-      .fill()
-      .map(() => BigInt(Math.floor(Math.random() * Number(PRIME))));
-    const valuesMont = values.map(toMontgomery);
     // console.log(`${x} in Montgomery form: ${toMontgomery(x)}`);
+    const valuesMont = values.map(toMontgomery);
 
     const timeStart = performance.now();
     const x_mont = toMontgomery(x);
     // Multiply in Montgomery form
-    let v = x_mont;
-    for (let c of valuesMont) {
-      v = montgomeryMultiply(v, c);
-    }
+    const v = valuesMont.reduce(
+      (acc, next) => montgomeryMultiply(acc, next),
+      x_mont,
+    );
 
     // Convert back to normal form
     const result = fromMontgomery(v);
@@ -114,6 +91,11 @@ export function benchmarkMontgomery(PRIME, iterations) {
     }, x);
     const timeN = performance.now() - timeStartN;
     console.log(`Naive Time: ${timeN.toFixed(2)}ms`);
+    if (expected !== result) {
+      throw new Error(
+        `Montgomery multiplication failed: ${result} !== ${expected}`,
+      );
+    }
     // console.log(`Result: ${result}`);
     // console.log(`Expected: ${expected}`);
     // console.log(`Correct: ${result === expected ? "✓" : "✗"}`);

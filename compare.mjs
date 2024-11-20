@@ -6,11 +6,16 @@ const primes = [
   BigInt("18446744069414584321"), // oxfoi 64 bit
   BigInt("170141183460469231731687303715884105727"), // prime just below 2^128
   BigInt("340282366920938463463374607431768211507"), // prime just above 2^128
+  BigInt(
+    "57896044618658097711785492504343953926634992332820282019728792003956564819949",
+  ), // closest prime to 2^255
 ];
-const iterations = 1000000;
+const iterations = 10000;
 for (const p of primes) {
-  benchmarkMontgomery(p, iterations);
-}
-for (const p of primes) {
-  benchmarkBarrett(p, iterations);
+  const x = BigInt(Math.floor(Math.random() * Number(p)));
+  const constants = Array(iterations)
+    .fill()
+    .map(() => BigInt(Math.floor(Math.random() * Number(p))));
+  benchmarkMontgomery(p, iterations, x, constants);
+  benchmarkBarrett(p, iterations, x, constants);
 }

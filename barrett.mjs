@@ -1,4 +1,4 @@
-export function benchmarkBarrett(PRIME, iterations) {
+export function benchmarkBarrett(PRIME, iterations, x, testValues) {
   // Run benchmark
   console.log("\nRunning Barrett benchmark...");
   console.log("N (Prime): ", PRIME.toString());
@@ -9,10 +9,7 @@ export function benchmarkBarrett(PRIME, iterations) {
   const BARRET_MU = 2n ** (2n * PRIME_BIT_LENGTH) / PRIME;
 
   // Generate random test values
-  const x = BigInt(Math.floor(Math.random() * Number(PRIME)));
-  const testValues = Array(iterations)
-    .fill()
-    .map(() => BigInt(Math.floor(Math.random() * Number(PRIME))));
+  // const x = BigInt(Math.floor(Math.random() * Number(PRIME)));
   // Verify against native modular multiplication
   const timeStartN = performance.now();
   const expected = testValues.reduce((acc, v) => {
