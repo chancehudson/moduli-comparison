@@ -1,5 +1,7 @@
 export function benchmarkMontgomery(PRIME, iterations) {
   const R = 2n ** (log2BigInt(PRIME) + 1n); // R = 2^5 (smallest power of 2 > PRIME)
+  const R_BITMASK = R - 1n;
+  const R_BITS = log2BigInt(PRIME) + 1n;
   const R_SQUARED = (R * R) % PRIME; // R^2 mod P = 4
 
   // Find N' = -N^(-1) mod R
@@ -59,10 +61,10 @@ export function benchmarkMontgomery(PRIME, iterations) {
 
   // Montgomery reduction (REDC)
   function redc(T) {
-    const m = ((T % R) * N_PRIME) % R;
-    let t = (T + m * PRIME) / R;
+    const m = ((T & R_BITMASK) * N_PRIME) & R;
+    let t = (T + m * PRIME) >> R_BITS;
 
-    while (t >= PRIME) {
+    if (t >= PRIME) {
       t -= PRIME;
     }
     return t;
