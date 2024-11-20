@@ -5,41 +5,51 @@ compare performance of montgomery and barrett reductions
 ```sh
 Running Montgomery benchmark...
 N (Prime) = 2013265921
-Montgomery 1000000 muls: 17.58ms
-Naive Time: 7.48ms
-
-Running Montgomery benchmark...
-N (Prime) = 18446744069414584321
-Montgomery 1000000 muls: 18.48ms
-Naive Time: 22.30ms
-
-Running Montgomery benchmark...
-N (Prime) = 170141183460469231731687303715884105727
-Montgomery 1000000 muls: 16.27ms
-Naive Time: 119.96ms
-
-Running Montgomery benchmark...
-N (Prime) = 340282366920938463463374607431768211507
-Montgomery 1000000 muls: 18.21ms
-Naive Time: 91.70ms
+Montgomery 10000 muls: 1.33ms
+Naive Time: 0.46ms
 
 Running Barrett benchmark...
 N (Prime):  2013265921
-Barrett 1000000 muls: 27.91ms
-Naive Time: 10.86ms
+Barrett 10000 muls: 1.05ms
+Naive Time: 0.22ms
+
+Running Montgomery benchmark...
+N (Prime) = 18446744069414584321
+Montgomery 10000 muls: 1.47ms
+Naive Time: 0.38ms
 
 Running Barrett benchmark...
 N (Prime):  18446744069414584321
-Barrett 1000000 muls: 68.13ms
-Naive Time: 27.60ms
+Barrett 10000 muls: 1.04ms
+Naive Time: 0.36ms
+
+Running Montgomery benchmark...
+N (Prime) = 170141183460469231731687303715884105727
+Montgomery 10000 muls: 1.31ms
+Naive Time: 1.43ms
 
 Running Barrett benchmark...
 N (Prime):  170141183460469231731687303715884105727
-Barrett 1000000 muls: 80.04ms
-Naive Time: 126.00ms
+Barrett 10000 muls: 1.06ms
+Naive Time: 1.55ms
+
+Running Montgomery benchmark...
+N (Prime) = 340282366920938463463374607431768211507
+Montgomery 10000 muls: 1.34ms
+Naive Time: 1.03ms
 
 Running Barrett benchmark...
 N (Prime):  340282366920938463463374607431768211507
-Barrett 1000000 muls: 94.86ms
-Naive Time: 95.59ms
+Barrett 10000 muls: 1.12ms
+Naive Time: 1.04ms
+
+Running Montgomery benchmark...
+N (Prime) = 57896044618658097711785492504343953926634992332820282019728792003956564819949
+Montgomery 10000 muls: 1.33ms
+Naive Time: 2.09ms
+
+Running Barrett benchmark...
+N (Prime):  57896044618658097711785492504343953926634992332820282019728792003956564819949
+Barrett 10000 muls: 1.31ms
+Naive Time: 2.46ms
 ```
