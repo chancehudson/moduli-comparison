@@ -41,7 +41,7 @@ impl Montgomery {
     }
 
     pub fn redc(&self, v: IntegerAU) -> IntegerAU {
-        let m = (&(v.clone() & self.r_bitmask.clone()) * &self.n_prime) & self.r_bitmask.clone();
+        let m = &(&(&v & &self.r_bitmask) * &self.n_prime) & &self.r_bitmask;
         let t = (v + &m * &self.prime) >> self.r_bits;
         if t >= self.prime {
             (t - self.prime.clone()).unwrap()

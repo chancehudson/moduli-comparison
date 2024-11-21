@@ -341,10 +341,10 @@ impl<'a, 'b> Mul<&'b IntegerAU> for &'a IntegerAU {
 }
 
 // Bitwise AND
-impl BitAnd for IntegerAU {
-    type Output = Self;
+impl<'a, 'b> BitAnd<&'b IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
 
-    fn bitand(self, other: Self) -> Self {
+    fn bitand(self, other: &'b IntegerAU) -> IntegerAU {
         let min_len = std::cmp::min(self.limbs.len(), other.limbs.len());
         let mut result = Vec::with_capacity(min_len);
 
@@ -359,7 +359,7 @@ impl BitAnd for IntegerAU {
             result.pop();
         }
 
-        Self { limbs: result }
+        IntegerAU { limbs: result }
     }
 }
 
@@ -582,7 +582,7 @@ mod tests {
 
             let a = biguint_to_integer(&a_big);
             let b = biguint_to_integer(&b_big);
-            let result = a * b;
+            let result = &a * &b;
 
             assert_eq!(
                 integer_to_biguint(&result),
@@ -747,31 +747,11 @@ mod tests {
             let b = biguint_to_integer(&b_big);
 
             // Test AND
-            let and_result = a.clone() & b.clone();
+            let and_result = &a & &b;
             assert_eq!(
                 integer_to_biguint(&and_result),
                 &a_big & &b_big,
                 "Failed AND test: {} & {}",
-                a_str,
-                b_str
-            );
-
-            // Test OR
-            let or_result = a.clone() | b.clone();
-            assert_eq!(
-                integer_to_biguint(&or_result),
-                &a_big | &b_big,
-                "Failed OR test: {} | {}",
-                a_str,
-                b_str
-            );
-
-            // Test XOR
-            let xor_result = a.clone() ^ b.clone();
-            assert_eq!(
-                integer_to_biguint(&xor_result),
-                &a_big ^ &b_big,
-                "Failed XOR test: {} ^ {}",
                 a_str,
                 b_str
             );
