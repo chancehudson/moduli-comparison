@@ -1,55 +1,37 @@
 # moduli-comparison
 
-compare performance of montgomery and barrett reductions
+Compare performance of montgomery and barrett reductions against naïve reduction. All base operations are naïvely implemented on top of unsigned 64 bit integers.
+
+Usage: `cargo run --release`
 
 ```sh
-Running Montgomery benchmark...
-N (Prime) = 2013265921
-Montgomery 10000 muls: 1.33ms
-Naive Time: 0.46ms
+Benchmarking multiplications between random values.
+For Montgomery we assume the inputs are already in
+Montgomery form. The final result is converted to
+field representation.
 
-Running Barrett benchmark...
-N (Prime):  2013265921
-Barrett 10000 muls: 1.05ms
-Naive Time: 0.22ms
+===== modulus 2013265921 (31 bits) =====
+Naïve time for 1000 multiplications: 7.281834ms
+Barrett time for 1000 multiplications: 411.5µs
+Montgomery time for 1000 multiplications: 383.458µs
 
-Running Montgomery benchmark...
-N (Prime) = 18446744069414584321
-Montgomery 10000 muls: 1.47ms
-Naive Time: 0.38ms
+===== modulus 18446744069414584321 (64 bits) =====
+Naïve time for 1000 multiplications: 5.620084ms
+Barrett time for 1000 multiplications: 198.917µs
+Montgomery time for 1000 multiplications: 414.25µs
 
-Running Barrett benchmark...
-N (Prime):  18446744069414584321
-Barrett 10000 muls: 1.04ms
-Naive Time: 0.36ms
+===== modulus 170141183460469231731687303715884105727 (127 bits) =====
+Naïve time for 1000 multiplications: 14.191209ms
+Barrett time for 1000 multiplications: 250.375µs
+Montgomery time for 1000 multiplications: 526.917µs
 
-Running Montgomery benchmark...
-N (Prime) = 170141183460469231731687303715884105727
-Montgomery 10000 muls: 1.31ms
-Naive Time: 1.43ms
+===== modulus 340282366920938463463374607431768211507 (129 bits) =====
+Naïve time for 1000 multiplications: 14.868542ms
+Barrett time for 1000 multiplications: 302µs
+Montgomery time for 1000 multiplications: 616.708µs
 
-Running Barrett benchmark...
-N (Prime):  170141183460469231731687303715884105727
-Barrett 10000 muls: 1.06ms
-Naive Time: 1.55ms
-
-Running Montgomery benchmark...
-N (Prime) = 340282366920938463463374607431768211507
-Montgomery 10000 muls: 1.34ms
-Naive Time: 1.03ms
-
-Running Barrett benchmark...
-N (Prime):  340282366920938463463374607431768211507
-Barrett 10000 muls: 1.12ms
-Naive Time: 1.04ms
-
-Running Montgomery benchmark...
-N (Prime) = 57896044618658097711785492504343953926634992332820282019728792003956564819949
-Montgomery 10000 muls: 1.33ms
-Naive Time: 2.09ms
-
-Running Barrett benchmark...
-N (Prime):  57896044618658097711785492504343953926634992332820282019728792003956564819949
-Barrett 10000 muls: 1.31ms
-Naive Time: 2.46ms
+===== modulus 57896044618658097711785492504343953926634992332820282019728792003956564819949 (255 bits) =====
+Naïve time for 1000 multiplications: 31.487208ms
+Barrett time for 1000 multiplications: 372.333µs
+Montgomery time for 1000 multiplications: 680.25µs
 ```
