@@ -6,7 +6,6 @@ use num_bigint::BigUint;
 mod barrett;
 mod integer_au;
 mod montgomery;
-mod scalar_field;
 
 use barrett::Barrett;
 use integer_au::IntegerAU;
