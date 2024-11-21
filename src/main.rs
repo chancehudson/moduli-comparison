@@ -66,6 +66,7 @@ fn benchmark_muls(primes: &Vec<IntegerAU>) -> anyhow::Result<()> {
             "Naïve time for {iterations} multiplications: {:?}",
             start.elapsed()
         );
+
         let mut barrett_result = Vec::with_capacity(iterations);
         let start = Instant::now();
         for (x, y) in &values {
@@ -78,6 +79,7 @@ fn benchmark_muls(primes: &Vec<IntegerAU>) -> anyhow::Result<()> {
             "Barrett time for {iterations} multiplications: {:?}",
             start.elapsed()
         );
+
         let mut mont_result = Vec::with_capacity(iterations);
         let montgomery = Montgomery::new(&p);
         let mont_vals = values

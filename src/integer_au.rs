@@ -3,8 +3,6 @@ use std::cmp::PartialOrd;
 use std::fmt::Display;
 use std::ops::Add;
 use std::ops::BitAnd;
-use std::ops::BitOr;
-use std::ops::BitXor;
 use std::ops::Mul;
 use std::ops::Rem;
 use std::ops::Shl;
@@ -139,7 +137,7 @@ impl IntegerAU {
         // Subtract from largest to smallest
         for shifted_m in shifts.iter().rev() {
             if shifted_m <= &result {
-                result = (result - shifted_m.clone())?;
+                result = (&result - &shifted_m)?;
             }
         }
 
@@ -259,12 +257,12 @@ impl Add for IntegerAU {
     }
 }
 
-impl Sub for IntegerAU {
-    type Output = Option<Self>;
+impl<'a, 'b> Sub<&'b IntegerAU> for &'a IntegerAU {
+    type Output = Option<IntegerAU>;
 
-    fn sub(self, other: Self) -> Option<Self> {
+    fn sub(self, other: &'b IntegerAU) -> Option<IntegerAU> {
         // Check if subtraction would underflow
-        if self.cmp(&other) == std::cmp::Ordering::Less {
+        if self.cmp(other) == std::cmp::Ordering::Less {
             return None;
         }
 
@@ -364,13 +362,13 @@ impl<'a, 'b> BitAnd<&'b IntegerAU> for &'a IntegerAU {
 }
 
 // Left shift
-impl Shl<usize> for IntegerAU {
-    type Output = Self;
+impl<'a> Shl<usize> for &'a IntegerAU {
+    type Output = IntegerAU;
 
-    fn shl(self, shift: usize) -> Self {
+    fn shl(self, shift: usize) -> IntegerAU {
         // Handle zero case
         if self.limbs.len() == 1 && self.limbs[0] == 0 {
-            return self;
+            return IntegerAU { limbs: vec![0] };
         }
 
         let word_shifts = shift / 64;
@@ -403,18 +401,18 @@ impl Shl<usize> for IntegerAU {
             result.pop();
         }
 
-        Self { limbs: result }
+        IntegerAU { limbs: result }
     }
 }
 
 // Right shift
-impl Shr<usize> for IntegerAU {
-    type Output = Self;
+impl<'a> Shr<usize> for &'a IntegerAU {
+    type Output = IntegerAU;
 
-    fn shr(self, shift: usize) -> Self {
+    fn shr(self, shift: usize) -> IntegerAU {
         // Handle zero case
         if self.limbs.len() == 1 && self.limbs[0] == 0 {
-            return self;
+            return IntegerAU { limbs: vec![0] };
         }
 
         let word_shifts = shift / 64;
@@ -422,7 +420,7 @@ impl Shr<usize> for IntegerAU {
 
         // If we're shifting by more than the number of words we have, return zero
         if word_shifts >= self.limbs.len() {
-            return Self { limbs: vec![0] };
+            return IntegerAU { limbs: vec![0] };
         }
 
         // Create result vector
@@ -451,7 +449,7 @@ impl Shr<usize> for IntegerAU {
             result.push(0);
         }
 
-        Self { limbs: result }
+        IntegerAU { limbs: result }
     }
 }
 
@@ -539,7 +537,7 @@ mod tests {
 
                 let a = biguint_to_integer(&a_big);
                 let b = biguint_to_integer(&b_big);
-                let result = (a - b).unwrap();
+                let result = (&a - &b).unwrap();
 
                 assert_eq!(
                     integer_to_biguint(&result),
@@ -556,7 +554,7 @@ mod tests {
     fn test_subtraction_underflow() {
         let a = IntegerAU { limbs: vec![5] };
         let b = IntegerAU { limbs: vec![10] };
-        assert_eq!(a - b, None);
+        assert_eq!(&a - &b, None);
     }
 
     #[test]
@@ -772,7 +770,7 @@ mod tests {
             let a = biguint_to_integer(&a_big);
 
             // Test left shift
-            let shl_result = a.clone() << shift;
+            let shl_result = &a << shift;
             assert_eq!(
                 integer_to_biguint(&shl_result),
                 &a_big << shift,
@@ -782,7 +780,7 @@ mod tests {
             );
 
             // Test right shift
-            let shr_result = a >> shift;
+            let shr_result = &a >> shift;
             assert_eq!(
                 integer_to_biguint(&shr_result),
                 &a_big >> shift,
@@ -799,18 +797,18 @@ mod tests {
         let a = IntegerAU {
             limbs: vec![0xFFFFFFFFFFFFFFFF],
         };
-        assert_eq!((a.clone() << 128).limbs, vec![0, 0, 0xFFFFFFFFFFFFFFFF]); // Shift left by 2 words
-        assert_eq!((a >> 128).limbs, vec![0]); // Should be zero for right shift
+        assert_eq!((&a << 128).limbs, vec![0, 0, 0xFFFFFFFFFFFFFFFF]); // Shift left by 2 words
+        assert_eq!((&a >> 128).limbs, vec![0]); // Should be zero for right shift
 
         // Test shifting by exactly one word
         let b = IntegerAU {
             limbs: vec![0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF],
         };
         assert_eq!(
-            (b.clone() << 64).limbs,
+            (&b << 64).limbs,
             vec![0, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]
         ); // Moving all bits left by one word
-        assert_eq!((b >> 64).limbs, vec![0xFFFFFFFFFFFFFFFF]); // Removing a word
+        assert_eq!((&b >> 64).limbs, vec![0xFFFFFFFFFFFFFFFF]); // Removing a word
     }
     #[test]
     fn test_bit_len() {

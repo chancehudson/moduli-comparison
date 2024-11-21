@@ -20,10 +20,10 @@ impl Barrett {
     }
 
     pub fn reduce(&self, x: IntegerAU) -> IntegerAU {
-        let q = (&(x.clone() >> self.prime_bit_length) * &self.barret_mu) >> self.prime_bit_length;
-        let mut r = (x - (&q * &self.prime)).unwrap();
+        let q = &(&(&x >> self.prime_bit_length) * &self.barret_mu) >> self.prime_bit_length;
+        let mut r = (&x - &(&q * &self.prime)).unwrap();
         while r >= self.prime {
-            r = (r - self.prime.clone()).unwrap();
+            r = (&r - &self.prime).unwrap();
         }
         r
     }
