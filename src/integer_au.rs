@@ -3,6 +3,8 @@ use std::cmp::PartialOrd;
 use std::fmt::Display;
 use std::ops::Add;
 use std::ops::BitAnd;
+use std::ops::BitOr;
+use std::ops::Div;
 use std::ops::Mul;
 use std::ops::Rem;
 use std::ops::Shl;
@@ -126,7 +128,7 @@ impl IntegerAU {
         while current <= result {
             shifts.push(current.clone());
             let mut next = current.clone();
-            next = next.clone() + next;
+            next = &next + &next;
             // If adding caused overflow or exceeded result, break
             if next > result {
                 break;
@@ -221,10 +223,10 @@ impl PartialOrd for IntegerAU {
     }
 }
 
-impl Add for IntegerAU {
-    type Output = Self;
+impl<'a, 'b> Add<&'b IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
 
-    fn add(self, other: Self) -> Self {
+    fn add(self, other: &'b IntegerAU) -> IntegerAU {
         let max_len = std::cmp::max(self.limbs.len(), other.limbs.len());
         let mut result = Vec::with_capacity(max_len + 1);
         let mut carry = 0u64;
@@ -338,6 +340,114 @@ impl<'a, 'b> Mul<&'b IntegerAU> for &'a IntegerAU {
     }
 }
 
+// Implement for owned values by delegating to reference implementation
+impl Div for IntegerAU {
+    type Output = IntegerAU;
+
+    fn div(self, divisor: IntegerAU) -> IntegerAU {
+        &self / &divisor
+    }
+}
+
+impl<'a, 'b> Div<&'b IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
+
+    fn div(self, divisor: &'b IntegerAU) -> IntegerAU {
+        // Check for division by zero
+        if divisor.limbs.len() == 1 && divisor.limbs[0] == 0 {
+            panic!("divide by 0");
+        }
+
+        // If dividend is smaller than divisor, return 0
+        if self < divisor {
+            return IntegerAU { limbs: vec![0] };
+        }
+
+        // If numbers are equal, return 1
+        if self == divisor {
+            return IntegerAU { limbs: vec![1] };
+        }
+
+        let mut quotient = IntegerAU { limbs: vec![0] };
+        let mut remainder = self.clone();
+
+        // Calculate initial shift needed
+        let mut shifted_divisor = divisor.clone();
+        let mut total_shifts = 0;
+
+        while shifted_divisor <= remainder && total_shifts < remainder.bit_len() {
+            shifted_divisor = &IntegerAU::from(2u64) * &shifted_divisor;
+            total_shifts += 1;
+        }
+
+        // Adjust if we went one step too far
+        if shifted_divisor > remainder {
+            shifted_divisor = &shifted_divisor >> 1;
+            total_shifts = total_shifts.saturating_sub(1);
+        }
+
+        // Start the division process
+        for current_shift in (0..=total_shifts).rev() {
+            if remainder >= shifted_divisor {
+                // Subtract shifted divisor from remainder
+                remainder = (&remainder - &shifted_divisor).unwrap();
+                // Set the corresponding bit in quotient
+                quotient = quotient | (&IntegerAU::from(1u64) << current_shift);
+            }
+            shifted_divisor = &shifted_divisor >> 1;
+        }
+
+        quotient
+    }
+}
+
+impl<'a, 'b> BitOr<&'b IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
+
+    fn bitor(self, other: &'b IntegerAU) -> IntegerAU {
+        let max_len = std::cmp::max(self.limbs.len(), other.limbs.len());
+        let mut result = Vec::with_capacity(max_len);
+
+        for i in 0..max_len {
+            let a = self.limbs.get(i).copied().unwrap_or(0);
+            let b = other.limbs.get(i).copied().unwrap_or(0);
+            result.push(a | b);
+        }
+
+        // Remove leading zeros
+        while result.len() > 1 && result[result.len() - 1] == 0 {
+            result.pop();
+        }
+
+        IntegerAU { limbs: result }
+    }
+}
+
+// Implement for owned values
+impl BitOr for IntegerAU {
+    type Output = IntegerAU;
+
+    fn bitor(self, other: IntegerAU) -> IntegerAU {
+        &self | &other
+    }
+}
+
+impl<'a> BitOr<IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
+
+    fn bitor(self, other: IntegerAU) -> IntegerAU {
+        self | &other
+    }
+}
+
+impl<'a> BitOr<&'a IntegerAU> for IntegerAU {
+    type Output = IntegerAU;
+
+    fn bitor(self, other: &'a IntegerAU) -> IntegerAU {
+        &self | other
+    }
+}
+
 // Bitwise AND
 impl<'a, 'b> BitAnd<&'b IntegerAU> for &'a IntegerAU {
     type Output = IntegerAU;
@@ -358,6 +468,14 @@ impl<'a, 'b> BitAnd<&'b IntegerAU> for &'a IntegerAU {
         }
 
         IntegerAU { limbs: result }
+    }
+}
+
+impl Shl<usize> for IntegerAU {
+    type Output = IntegerAU;
+
+    fn shl(self, shift: usize) -> IntegerAU {
+        &self << shift
     }
 }
 
@@ -402,6 +520,14 @@ impl<'a> Shl<usize> for &'a IntegerAU {
         }
 
         IntegerAU { limbs: result }
+    }
+}
+
+impl Shr<usize> for IntegerAU {
+    type Output = IntegerAU;
+
+    fn shr(self, shift: usize) -> IntegerAU {
+        &self >> shift
     }
 }
 
@@ -501,7 +627,7 @@ mod tests {
 
             let a = biguint_to_integer(&a_big);
             let b = biguint_to_integer(&b_big);
-            let result = a + b;
+            let result = &a + &b;
 
             assert_eq!(
                 integer_to_biguint(&result),
@@ -875,5 +1001,199 @@ mod tests {
                 expected_bits
             );
         }
+    }
+
+    #[test]
+    fn test_basic_division() {
+        let test_cases = vec![
+            ("10", "2", "5"),    // Basic division
+            ("100", "10", "10"), // Larger numbers
+            ("7", "2", "3"),     // Non-exact division
+            ("0", "5", "0"),     // Zero dividend
+            ("5", "10", "0"),    // Dividend smaller than divisor
+            ("42", "42", "1"),   // Equal numbers
+        ];
+
+        for (a_str, b_str, expected_str) in test_cases {
+            let a = IntegerAU::from_biguint(BigUint::from_str(a_str).unwrap());
+            let b = IntegerAU::from_biguint(BigUint::from_str(b_str).unwrap());
+            let expected = IntegerAU::from_biguint(BigUint::from_str(expected_str).unwrap());
+
+            assert_eq!(&a / &b, expected);
+        }
+    }
+
+    #[test]
+    fn test_large_numbers() {
+        let test_cases = vec![
+            // 2^64 / 2
+            ("18446744073709551616", "2", "9223372036854775808"),
+            // (2^64 - 1) / (2^32 - 1)
+            ("18446744073709551615", "4294967295", "4294967297"),
+        ];
+
+        for (a_str, b_str, expected_str) in test_cases {
+            let a = IntegerAU::from_biguint(BigUint::from_str(a_str).unwrap());
+            let b = IntegerAU::from_biguint(BigUint::from_str(b_str).unwrap());
+            let expected = IntegerAU::from_biguint(BigUint::from_str(expected_str).unwrap());
+
+            assert_eq!(&a / &b, expected);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_division_by_zero() {
+        let a = IntegerAU::from_biguint(BigUint::from(42u64));
+        let zero = IntegerAU::from_biguint(BigUint::from(0u64));
+        &a / &zero;
+    }
+
+    #[test]
+    fn test_division_with_remainder() {
+        let test_cases = vec![
+            ("100", "3"),    // 100 = 33 * 3 + 1
+            ("1000", "7"),   // Has remainder
+            ("12345", "67"), // Larger numbers
+        ];
+
+        for (a_str, b_str) in test_cases {
+            let a_big = BigUint::from_str(a_str).unwrap();
+            let b_big = BigUint::from_str(b_str).unwrap();
+            let expected = &a_big / &b_big;
+
+            let a = IntegerAU::from_biguint(a_big);
+            let b = IntegerAU::from_biguint(b_big);
+            let result = &a / &b;
+
+            assert_eq!(
+                IntegerAU::from_biguint(expected),
+                result,
+                "Failed division test: {} / {}",
+                a_str,
+                b_str
+            );
+        }
+    }
+
+    #[test]
+    fn test_random_division() {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..100 {
+            // Generate random numbers (making sure divisor isn't zero)
+            let a = rng.gen_range(1..=1000000) as u64;
+            let b = rng.gen_range(1..=1000000) as u64;
+
+            let a_int = IntegerAU::from(a);
+            let b_int = IntegerAU::from(b);
+
+            let expected = a / b;
+            let result = &a_int / &b_int;
+
+            assert_eq!(
+                result,
+                IntegerAU::from_biguint(BigUint::from(expected)),
+                "Failed random division test: {} / {}",
+                a,
+                b
+            );
+        }
+    }
+
+    #[test]
+    fn test_bitor_basic() {
+        // Basic test cases
+        let test_cases = vec![
+            (vec![0], vec![0], vec![0]),                // 0 | 0 = 0
+            (vec![1], vec![0], vec![1]),                // 1 | 0 = 1
+            (vec![0xFF], vec![0xF0], vec![0xFF]),       // 11111111 | 11110000 = 11111111
+            (vec![0xF0], vec![0x0F], vec![0xFF]),       // 11110000 | 00001111 = 11111111
+            (vec![0xFFFF], vec![0xFF00], vec![0xFFFF]), // Test with larger numbers
+        ];
+
+        for (a_limbs, b_limbs, expected) in test_cases {
+            let a = IntegerAU {
+                limbs: a_limbs.clone(),
+            };
+            let b = IntegerAU {
+                limbs: b_limbs.clone(),
+            };
+            let result = &a | &b;
+            assert_eq!(result.limbs, expected);
+
+            // Test that originals are unchanged
+            assert_eq!(a.limbs, a_limbs);
+            assert_eq!(b.limbs, b_limbs);
+        }
+    }
+
+    #[test]
+    fn test_bitor_different_lengths() {
+        // Test with different length numbers
+        let a = IntegerAU {
+            limbs: vec![0xFFFF, 0xFFFF],
+        };
+        let b = IntegerAU {
+            limbs: vec![0xFFFF],
+        };
+        let result = &a | &b;
+        assert_eq!(result.limbs, vec![0xFFFF, 0xFFFF]);
+
+        let c = IntegerAU { limbs: vec![0] };
+        let d = IntegerAU {
+            limbs: vec![0xFFFF, 0xFFFF],
+        };
+        let result2 = &c | &d;
+        assert_eq!(result2.limbs, vec![0xFFFF, 0xFFFF]);
+    }
+
+    #[test]
+    fn test_bitor_large_numbers() {
+        // Test with full u64 values
+        let a = IntegerAU {
+            limbs: vec![0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF],
+        };
+        let b = IntegerAU {
+            limbs: vec![0xFFFFFFFFFFFFFFFF, 0],
+        };
+        let result = &a | &b;
+        assert_eq!(result.limbs, vec![0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]);
+    }
+
+    #[test]
+    fn test_bitor_all_variants() {
+        // Test all combinations of owned and borrowed values
+        let a = IntegerAU { limbs: vec![0xF0] };
+        let b = IntegerAU { limbs: vec![0x0F] };
+        let expected = vec![0xFF];
+
+        // &T | &T
+        assert_eq!((&a | &b).limbs, expected);
+
+        // T | T
+        assert_eq!((a.clone() | b.clone()).limbs, expected);
+
+        // &T | T
+        assert_eq!((&a | b.clone()).limbs, expected);
+
+        // T | &T
+        assert_eq!((a.clone() | &b).limbs, expected);
+    }
+
+    #[test]
+    fn test_bitor_with_zero() {
+        let zero = IntegerAU { limbs: vec![0] };
+        let a = IntegerAU {
+            limbs: vec![0xFFFF],
+        };
+
+        // x | 0 = x
+        assert_eq!((&a | &zero).limbs, vec![0xFFFF]);
+        assert_eq!((&zero | &a).limbs, vec![0xFFFF]);
+
+        // 0 | 0 = 0
+        assert_eq!((&zero | &zero).limbs, vec![0]);
     }
 }

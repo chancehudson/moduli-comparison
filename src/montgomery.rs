@@ -24,11 +24,11 @@ impl Montgomery {
         }
     }
 
-    pub fn to_mont(&self, v: IntegerAU) -> IntegerAU {
-        (&v << self.r_bits) % self.prime.clone()
+    pub fn to_mont(&self, v: &IntegerAU) -> IntegerAU {
+        (v << self.r_bits) % self.prime.clone()
     }
 
-    pub fn from_mont(&self, v: IntegerAU) -> IntegerAU {
+    pub fn from_mont(&self, v: &IntegerAU) -> IntegerAU {
         self.redc(v)
     }
 
@@ -40,9 +40,9 @@ impl Montgomery {
         out
     }
 
-    pub fn redc(&self, v: IntegerAU) -> IntegerAU {
-        let m = &(&(&v & &self.r_bitmask) * &self.n_prime) & &self.r_bitmask;
-        let t = &(v + &m * &self.prime) >> self.r_bits;
+    pub fn redc(&self, v: &IntegerAU) -> IntegerAU {
+        let m = &(&(v & &self.r_bitmask) * &self.n_prime) & &self.r_bitmask;
+        let t = &(v + &(&m * &self.prime)) >> self.r_bits;
         if t >= self.prime {
             (&t - &self.prime).unwrap()
         } else {
