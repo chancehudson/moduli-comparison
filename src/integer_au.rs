@@ -303,10 +303,10 @@ impl Sub for IntegerAU {
     }
 }
 
-impl Mul for IntegerAU {
-    type Output = Self;
+impl<'a, 'b> Mul<&'b IntegerAU> for &'a IntegerAU {
+    type Output = IntegerAU;
 
-    fn mul(self, other: Self) -> Self {
+    fn mul(self, other: &'b IntegerAU) -> IntegerAU {
         if self.limbs.is_empty() || other.limbs.is_empty() {
             return IntegerAU { limbs: vec![0] };
         }

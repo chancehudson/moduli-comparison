@@ -32,10 +32,17 @@ impl Montgomery {
         self.redc(v)
     }
 
+    pub fn reduce_naive(&self, v: IntegerAU) -> IntegerAU {
+        let mut out = v;
+        while out >= self.prime {
+            out = (out - self.prime.clone()).unwrap();
+        }
+        out
+    }
+
     pub fn redc(&self, v: IntegerAU) -> IntegerAU {
-        let m =
-            ((v.clone() & self.r_bitmask.clone()) * self.n_prime.clone()) & self.r_bitmask.clone();
-        let t = (v.clone() + m * self.prime.clone()) >> self.r_bits;
+        let m = (&(v.clone() & self.r_bitmask.clone()) * &self.n_prime) & self.r_bitmask.clone();
+        let t = (v + &m * &self.prime) >> self.r_bits;
         if t >= self.prime {
             (t - self.prime.clone()).unwrap()
         } else {
