@@ -2,6 +2,7 @@ use std::cmp::PartialEq;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
 use std::ops::Add;
+use std::ops::AddAssign;
 use std::ops::BitAnd;
 use std::ops::BitOr;
 use std::ops::Div;
@@ -139,7 +140,7 @@ impl IntegerAU {
         // Subtract from largest to smallest
         for shifted_m in shifts.iter().rev() {
             if shifted_m <= &result {
-                result = (&result - &shifted_m)?;
+                result = &result - &shifted_m;
             }
         }
 
@@ -159,6 +160,14 @@ impl IntegerAU {
             }
         }
         std::cmp::Ordering::Equal
+    }
+
+    pub fn trim(mut self) -> Self {
+        // Remove leading zeros
+        while self.limbs.len() > 1 && self.limbs[self.limbs.len() - 1] == 0 {
+            self.limbs.pop();
+        }
+        self
     }
 }
 
@@ -223,6 +232,12 @@ impl PartialOrd for IntegerAU {
     }
 }
 
+impl AddAssign<&IntegerAU> for IntegerAU {
+    fn add_assign(&mut self, other: &IntegerAU) {
+        *self = &*self + other;
+    }
+}
+
 impl<'a, 'b> Add<&'b IntegerAU> for &'a IntegerAU {
     type Output = IntegerAU;
 
@@ -250,22 +265,16 @@ impl<'a, 'b> Add<&'b IntegerAU> for &'a IntegerAU {
             result.push(carry);
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
 impl<'a, 'b> Sub<&'b IntegerAU> for &'a IntegerAU {
-    type Output = Option<IntegerAU>;
+    type Output = IntegerAU;
 
-    fn sub(self, other: &'b IntegerAU) -> Option<IntegerAU> {
-        // Check if subtraction would underflow
+    fn sub(self, other: &'b IntegerAU) -> IntegerAU {
         if self.cmp(other) == std::cmp::Ordering::Less {
-            return None;
+            panic!("Subtraction underflow");
         }
 
         let mut result = Vec::with_capacity(self.limbs.len());
@@ -275,7 +284,6 @@ impl<'a, 'b> Sub<&'b IntegerAU> for &'a IntegerAU {
             let mut a = self.limbs[i];
             let b = other.limbs.get(i).copied().unwrap_or(0);
 
-            // Handle borrow from previous subtraction
             if borrow {
                 if a == 0 {
                     a = u64::MAX;
@@ -285,7 +293,6 @@ impl<'a, 'b> Sub<&'b IntegerAU> for &'a IntegerAU {
                 }
             }
 
-            // Perform subtraction
             if a >= b {
                 result.push(a - b);
             } else {
@@ -294,12 +301,7 @@ impl<'a, 'b> Sub<&'b IntegerAU> for &'a IntegerAU {
             }
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        Some(IntegerAU { limbs: result })
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -331,12 +333,7 @@ impl<'a, 'b> Mul<&'b IntegerAU> for &'a IntegerAU {
             }
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -390,7 +387,7 @@ impl<'a, 'b> Div<&'b IntegerAU> for &'a IntegerAU {
         for current_shift in (0..=total_shifts).rev() {
             if remainder >= shifted_divisor {
                 // Subtract shifted divisor from remainder
-                remainder = (&remainder - &shifted_divisor).unwrap();
+                remainder = (&remainder - &shifted_divisor);
                 // Set the corresponding bit in quotient
                 quotient = quotient | (&IntegerAU::from(1u64) << current_shift);
             }
@@ -414,12 +411,7 @@ impl<'a, 'b> BitOr<&'b IntegerAU> for &'a IntegerAU {
             result.push(a | b);
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -457,17 +449,10 @@ impl<'a, 'b> BitAnd<&'b IntegerAU> for &'a IntegerAU {
         let mut result = Vec::with_capacity(min_len);
 
         for i in 0..min_len {
-            let a = self.limbs.get(i).copied().unwrap_or(0);
-            let b = other.limbs.get(i).copied().unwrap_or(0);
-            result.push(a & b);
+            result.push(self.limbs[i] & other.limbs[i]);
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -490,22 +475,23 @@ impl<'a> Shl<usize> for &'a IntegerAU {
         }
 
         let word_shifts = shift / 64;
-        let bit_shifts = shift % 64;
+        let bit_shifts = shift - word_shifts * 64;
 
         // Create result vector with enough space
         let mut result = vec![0u64; self.limbs.len() + word_shifts + 1];
 
         // Copy original number shifted by words
-        for (i, &limb) in self.limbs.iter().enumerate() {
-            result[i + word_shifts] = limb;
+        for i in 0..self.limbs.len() {
+            result[i + word_shifts] = self.limbs[i];
         }
 
         // Handle bit shifts
         if bit_shifts > 0 {
+            let bit_shifts_diff = 64 - bit_shifts;
             let mut carry = 0u64;
             for i in word_shifts..result.len() {
                 let new_carry = if i < result.len() - 1 {
-                    result[i] >> (64 - bit_shifts)
+                    result[i] >> bit_shifts_diff
                 } else {
                     0
                 };
@@ -514,12 +500,7 @@ impl<'a> Shl<usize> for &'a IntegerAU {
             }
         }
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -542,7 +523,7 @@ impl<'a> Shr<usize> for &'a IntegerAU {
         }
 
         let word_shifts = shift / 64;
-        let bit_shifts = shift % 64;
+        let bit_shifts = shift - word_shifts * 64;
 
         // If we're shifting by more than the number of words we have, return zero
         if word_shifts >= self.limbs.len() {
@@ -550,13 +531,14 @@ impl<'a> Shr<usize> for &'a IntegerAU {
         }
 
         // Create result vector
-        let mut result = if bit_shifts == 0 {
+        let result = if bit_shifts == 0 {
             // If only shifting by whole words, just truncate
             self.limbs[word_shifts..].to_vec()
         } else {
             let mut res = Vec::with_capacity(self.limbs.len() - word_shifts);
+            let bit_shifts_diff = 64 - bit_shifts;
             for window in self.limbs[word_shifts..].windows(2) {
-                res.push((window[0] >> bit_shifts) | (window[1] << (64 - bit_shifts)));
+                res.push((window[0] >> bit_shifts) | (window[1] << bit_shifts_diff));
             }
             // Handle the last word
             if word_shifts < self.limbs.len() {
@@ -565,17 +547,7 @@ impl<'a> Shr<usize> for &'a IntegerAU {
             res
         };
 
-        // Remove leading zeros
-        while result.len() > 1 && result[result.len() - 1] == 0 {
-            result.pop();
-        }
-
-        // Handle empty result
-        if result.is_empty() {
-            result.push(0);
-        }
-
-        IntegerAU { limbs: result }
+        IntegerAU { limbs: result }.trim()
     }
 }
 
@@ -585,24 +557,6 @@ mod tests {
     use num_bigint::BigUint;
     use rand::Rng;
     use std::str::FromStr;
-
-    // Helper function to convert BigUint to IntegerAU
-    fn biguint_to_integer(n: &BigUint) -> IntegerAU {
-        let limbs: Vec<u64> = n.to_u64_digits();
-        IntegerAU {
-            limbs: if limbs.is_empty() { vec![0] } else { limbs },
-        }
-    }
-
-    // Helper function to convert IntegerAU to BigUint
-    fn integer_to_biguint(n: &IntegerAU) -> BigUint {
-        let mut result = BigUint::from(0u64);
-        for &limb in n.limbs.iter().rev() {
-            result <<= 64;
-            result += limb;
-        }
-        result
-    }
 
     #[test]
     fn test_addition() {
@@ -625,12 +579,12 @@ mod tests {
             let b_big = BigUint::from_str(b_str).unwrap();
             let expected = &a_big + &b_big;
 
-            let a = biguint_to_integer(&a_big);
-            let b = biguint_to_integer(&b_big);
+            let a = IntegerAU::from_biguint(a_big);
+            let b = IntegerAU::from_biguint(b_big);
             let result = &a + &b;
 
             assert_eq!(
-                integer_to_biguint(&result),
+                result.to_biguint(),
                 expected,
                 "Failed addition test: {} + {}",
                 a_str,
@@ -661,12 +615,12 @@ mod tests {
             if a_big >= b_big {
                 let expected = &a_big - &b_big;
 
-                let a = biguint_to_integer(&a_big);
-                let b = biguint_to_integer(&b_big);
-                let result = (&a - &b).unwrap();
+                let a = IntegerAU::from_biguint(a_big);
+                let b = IntegerAU::from_biguint(b_big);
+                let result = (&a - &b);
 
                 assert_eq!(
-                    integer_to_biguint(&result),
+                    result.to_biguint(),
                     expected,
                     "Failed subtraction test: {} - {}",
                     a_str,
@@ -677,10 +631,11 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_subtraction_underflow() {
         let a = IntegerAU { limbs: vec![5] };
         let b = IntegerAU { limbs: vec![10] };
-        assert_eq!(&a - &b, None);
+        let _ = &a - &b;
     }
 
     #[test]
@@ -704,12 +659,12 @@ mod tests {
             let b_big = BigUint::from_str(b_str).unwrap();
             let expected = &a_big * &b_big;
 
-            let a = biguint_to_integer(&a_big);
-            let b = biguint_to_integer(&b_big);
+            let a = IntegerAU::from_biguint(a_big);
+            let b = IntegerAU::from_biguint(b_big);
             let result = &a * &b;
 
             assert_eq!(
-                integer_to_biguint(&result),
+                result.to_biguint(),
                 expected,
                 "Failed multiplication test: {} * {}",
                 a_str,
@@ -745,8 +700,8 @@ mod tests {
             let a_big = BigUint::from_str(a_str).unwrap();
             let b_big = BigUint::from_str(b_str).unwrap();
 
-            let a = biguint_to_integer(&a_big);
-            let b = biguint_to_integer(&b_big);
+            let a = IntegerAU::from_biguint(a_big);
+            let b = IntegerAU::from_biguint(b_big);
 
             assert_eq!(
                 a.partial_cmp(&b),
@@ -777,12 +732,12 @@ mod tests {
             let m_big = BigUint::from_str(m_str).unwrap();
             let expected = BigUint::from_str(expected_str).unwrap();
 
-            let a = biguint_to_integer(&a_big);
-            let m = biguint_to_integer(&m_big);
+            let a = IntegerAU::from_biguint(a_big);
+            let m = IntegerAU::from_biguint(m_big);
             let result = a.modulo(&m).unwrap();
 
             assert_eq!(
-                integer_to_biguint(&result),
+                result.to_biguint(),
                 expected,
                 "Failed modulo test: {} mod {}",
                 a_str,
@@ -845,7 +800,7 @@ mod tests {
             let result = a.modulo(&m).unwrap();
 
             assert_eq!(
-                integer_to_biguint(&result),
+                result.to_biguint(),
                 expected,
                 "Failed random modulo test: \na: {:?} \nm: {:?}",
                 a_vec,
@@ -867,13 +822,13 @@ mod tests {
             let a_big = BigUint::from_str(a_str).unwrap();
             let b_big = BigUint::from_str(b_str).unwrap();
 
-            let a = biguint_to_integer(&a_big);
-            let b = biguint_to_integer(&b_big);
+            let a = IntegerAU::from_biguint(a_big.clone());
+            let b = IntegerAU::from_biguint(b_big.clone());
 
             // Test AND
             let and_result = &a & &b;
             assert_eq!(
-                integer_to_biguint(&and_result),
+                and_result.to_biguint(),
                 &a_big & &b_big,
                 "Failed AND test: {} & {}",
                 a_str,
@@ -893,12 +848,12 @@ mod tests {
 
         for (a_str, shift) in test_cases {
             let a_big = BigUint::from_str(a_str).unwrap();
-            let a = biguint_to_integer(&a_big);
+            let a = IntegerAU::from_biguint(a_big.clone());
 
             // Test left shift
             let shl_result = &a << shift;
             assert_eq!(
-                integer_to_biguint(&shl_result),
+                shl_result.to_biguint(),
                 &a_big << shift,
                 "Failed left shift test: {} << {}",
                 a_str,
@@ -908,7 +863,7 @@ mod tests {
             // Test right shift
             let shr_result = &a >> shift;
             assert_eq!(
-                integer_to_biguint(&shr_result),
+                shr_result.to_biguint(),
                 &a_big >> shift,
                 "Failed right shift test: {} >> {}",
                 a_str,

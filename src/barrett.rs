@@ -1,10 +1,4 @@
-use num_bigint::BigUint;
-
 use super::integer_au::IntegerAU;
-
-pub trait BitLen {
-    fn bit_len(&self) -> usize;
-}
 
 pub struct Barrett {
     prime: IntegerAU,
@@ -24,9 +18,9 @@ impl Barrett {
 
     pub fn reduce(&self, x: &IntegerAU) -> IntegerAU {
         let q = &(&(x >> self.prime_bit_length) * &self.barrett_mu) >> self.prime_bit_length;
-        let mut r = (x - &(&q * &self.prime)).unwrap();
+        let mut r = x - &(&q * &self.prime);
         while r >= self.prime {
-            r = (&r - &self.prime).unwrap();
+            r = &r - &self.prime;
         }
         r
     }

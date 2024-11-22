@@ -7,3 +7,9 @@ edition = "2021"
 anyhow = "1.0.93"
 num-bigint = { version = "0.4.6", features = ["rand"] }
 rand = "0.8.5"
+divan = "0.1.15"
+
+[[bench]]
+name = "barrett"
+harness = false
+path = "src/main.rs"
